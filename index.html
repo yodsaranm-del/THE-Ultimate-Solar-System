@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System AR - Ultimate Edition</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    
+    <script>
+      window.timeScale = 1;
+      window.showOrbits = true;
+
+      // 1. Component สร้างวงโคจร (อัปเกรดให้รองรับการเอียง tilt)
+      AFRAME.registerComponent('orbit-mover', {
+        schema: { 
+            speed: {type: 'number', default: 1},
+            radius: {type: 'number', default: 1},
+            tilt: {type: 'number', default: 0} // เพิ่มมุมเอียง
+        },
+        init: function() {
+          this.angle = Math.random() * 360;
+        },
+        tick: function(time, timeDelta) {
+          let speed = this.data.speed * window.timeScale;
+          this.angle += (speed * timeDelta) / 1000;
+          
+          let x = Math.cos(this.angle) * this.data.radius;
+          let z = Math.sin(this.angle) * this.data.radius;
+          
+          // คำนวณแกน Y ตามมุมเอียง (Tilt)
+          let y = Math.sin(this.angle) * Math.sin(this.data.tilt * (Math.PI/180)) * this.data.radius;
+          
+          this.el.object3D.position.set(x, y, z);
+        }
+      });
+
+      // 2. Component สร้างแถบดาวเคราะห์น้อย (Asteroid Belt) - ความสมจริงขั้นสุด
+      AFRAME.registerComponent('asteroid-belt', {
+        init: function() {
+          const count = 400; // จำนวนหิน
+          const beltContainer = this.el;
+          
+          for(let i=0; i<count; i++) {
+            let el = document.createElement('a-entity');
+            
+            // สุ่มตำแหน่งเป็นวงแหวน
+            let angle = Math.random() * Math.PI * 2;
+            let distance = 1.8 + Math.random() * 0.3; // ระยะห่าง 1.8 - 2.1 (ระหว่างอังคาร-พฤหัส)
+            let height = (Math.random() - 0.5) * 0.1; // กระจายแนวตั้งเล็กน้อย
+            
+            let x = Math.cos(angle) * distance;
+            let z = Math.sin(angle) * distance;
+            
+            // สุ่มรูปทรง (Dodecahedron ดูเหมือนหินสุด)
+            let size = Math.random() * 0.015 + 0.005;
+            el.setAttribute('geometry', `primitive: dodecahedron; radius: ${size}`);
+            el.setAttribute('material', 'color: #888; roughness: 1; flatShading: true');
+            el.setAttribute('position', `${x} ${height} ${z}`);
+            
+            // Animation หมุนตัวเองของหินแต่ละก้อน
+            el.setAttribute('animation', `property: rotation; to: ${Math.random()*360} ${Math.random()*360} 0; loop: true; dur: ${10000+Math.random()*20000}; easing: linear`);
+            
+            beltContainer.appendChild(el);
+          }
+        },
+        tick: function(time, timeDelta) {
+            // หมุนทั้งวงแหวนไปรอบดวงอาทิตย์ช้าๆ
+            let speed = 0.5 * window.timeScale;
+            this.el.object3D.rotation.y += (speed * timeDelta) / 10000;
+        }
+      });
+
+      // UI Control Logic (ของเดิมของคุณที่ดีอยู่แล้ว)
+      window.onload = function() {
+        const slider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const playBtn = document.getElementById('playBtn');
+        const orbitBtn = document.getElementById('orbitBtn');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpPanel = document.getElementById('helpPanel');
+        const closeHelp = document.getElementById('closeHelp');
+        
+        let isPlaying = true;
+
+        slider.addEventListener('input', (e) => {
+          window.timeScale = parseFloat(e.target.value);
+          speedValue.textContent = window.timeScale.toFixed(1);
+          if (window.timeScale > 0 && !isPlaying) {
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+          }
+        });
+
+        playBtn.addEventListener('click', () => {
+          isPlaying = !isPlaying;
+          window.timeScale = isPlaying ? parseFloat(slider.value) : 0;
+          playBtn.textContent = isPlaying ? '⏸' : '▶';
+        });
+
+        orbitBtn.addEventListener('click', () => {
+          window.showOrbits = !window.showOrbits;
+          document.querySelectorAll('.orbit-ring').forEach(ring => {
+            ring.setAttribute('visible', window.showOrbits);
+          });
+          orbitBtn.style.opacity = window.showOrbits ? '1' : '0.5';
+        });
+
+        helpBtn.addEventListener('click', () => {
+          helpPanel.classList.add('show');
+        });
+
+        closeHelp.addEventListener('click', () => {
+          helpPanel.classList.remove('show');
+        });
+      }
+    </script>
+
+    <style>
+        /* คงไว้ตามดีไซน์เดิมของคุณ */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: #000; }
+        .header { position: fixed; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%); }
+        .logo { color: white; font-size: 16px; font-weight: 500; letter-spacing: 2px; opacity: 0.9; }
+        .help-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; backdrop-filter: blur(10px); }
+        .help-icon:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
+        .controls { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 15px; padding: 15px 25px; background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(20px); border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.15); z-index: 999; }
+        .control-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; font-size: 18px; }
+        .control-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
+        .slider-group { display: flex; align-items: center; gap: 12px; }
+        .speed-label { color: white; font-size: 13px; opacity: 0.6; min-width: 35px; text-align: center; }
+        input[type=range] { width: 120px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); outline: none; -webkit-appearance: none; cursor: pointer; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: white; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .help-panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }
+        .help-panel.show { opacity: 1; visibility: visible; }
+        .help-content { max-width: 400px; width: 90%; background: rgba(20, 20, 20, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 40px 30px; color: white; max-height: 80vh; overflow-y: auto; }
+        .help-content h2 { font-size: 20px; font-weight: 500; margin-bottom: 25px; opacity: 0.95; letter-spacing: 1px; }
+        .help-section { margin-bottom: 25px; }
+        .help-section h3 { font-size: 14px; font-weight: 500; opacity: 0.5; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .help-section p { font-size: 15px; line-height: 1.8; opacity: 0.8; margin: 0; }
+        .help-item { display: flex; align-items: start; gap: 12px; margin-bottom: 12px; }
+        .help-icon-text { width: 30px; height: 30px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .help-text { flex: 1; font-size: 14px; line-height: 1.6; opacity: 0.8; }
+        .close-help-btn { width: 100%; padding: 14px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 12px; color: white; font-size: 14px; cursor: pointer; margin-top: 30px; transition: all 0.3s; }
+        .close-help-btn:hover { background: rgba(255, 255, 255, 0.15); }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">
+        <div class="logo">SOLAR SYSTEM <span style="font-size:10px; opacity:0.6;">ULTIMATE</span></div>
+        <div class="help-icon" id="helpBtn">?</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-btn" id="playBtn">⏸</div>
+        <div class="slider-group">
+            <input type="range" id="speedSlider" min="0" max="3" step="0.1" value="1">
+            <div class="speed-label"><span id="speedValue">1.0</span>×</div>
+        </div>
+        <div class="control-btn" id="orbitBtn">○</div>
+    </div>
+
+    <div class="help-panel" id="helpPanel">
+        <div class="help-content">
+            <h2>วิธีใช้งาน</h2>
+            <div class="help-section">
+                <h3>เริ่มต้น</h3>
+                <p>อนุญาตให้เข้าถึงกล้อง แล้วส่องที่ Hiro Marker</p>
+            </div>
+            <div class="help-section">
+                <h3>สิ่งใหม่ในเวอร์ชันนี้</h3>
+                <p>• <b>Asteroid Belt:</b> แถบดาวเคราะห์น้อยกว่า 400 ดวง</p>
+                <p>• <b>Jovian Moons:</b> ดวงจันทร์บริวารของดาวพฤหัส</p>
+                <p>• <b>Realistic Materials:</b> ปรับแสงเงาพื้นผิวสมจริง</p>
+            </div>
+            <button class="close-help-btn" id="closeHelp">ปิด</button>
+        </div>
+    </div>
+
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" 
+             renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
+             vr-mode-ui="enabled: false">
+
+      <a-marker preset="hiro">
+        
+        <a-entity light="type: ambient; intensity: 0.2; color: #BBB"></a-entity>
+        <a-entity light="type: point; castShadow: true; intensity: 3; distance: 50; decay: 1" position="0 0 0"></a-entity>
+
+        <a-entity position="0 0.5 0">
+           <a-sphere radius="0.4" 
+                     src="https://upload.wikimedia.org/wikipedia/commons/9/9b/Sun_texture.jpg"
+                     material="emissive: #FF8800; emissiveIntensity: 1; shader: standard"
+                     animation="property: rotation; to: 0 360 0; loop: true; dur: 100000; easing: linear">
+           </a-sphere>
+           <a-sphere radius="0.45" color="#FFCC00" opacity="0.4" material="transparent: true; side: back; shader: flat"></a-sphere>
+           <a-sphere radius="0.6" color="#FF4500" opacity="0.2" material="transparent: true; side: back; shader: flat"></a-sphere>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 0.6; speed: 2.5">
+            <a-sphere radius="0.04" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/2/28/Mercury_in_color_-_Prockter07_centered.jpg"
+                      material="roughness: 1; metalness: 0" 
+                      shadow="cast: true; receive: true"
+                      animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 0.8; speed: 1.8">
+            <a-sphere radius="0.08" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/1/1c/Venus-real_color.jpg"
+                      material="roughness: 0.5"
+                      shadow="cast: true; receive: true"
+                      animation="property: rotation; to: 0 -360 0; loop: true; dur: 8000; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 1.2; speed: 1.2">
+            <a-entity>
+                <a-sphere radius="0.1" 
+                          src="https://upload.wikimedia.org/wikipedia/commons/c/cf/Earthmap1000x500.jpg"
+                          material="roughness: 0.8; metalness: 0.1"
+                          shadow="cast: true; receive: true"
+                          animation="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear"></a-sphere>
+                <a-sphere radius="0.102" 
+                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Blue_Marble_2002.png/1200px-Blue_Marble_2002.png"
+                          material="transparent: true; opacity: 0.4; blending: additive; side: double"
+                          animation="property: rotation; to: 0 380 0; loop: true; dur: 4000; easing: linear"></a-sphere>
+                <a-sphere radius="0.11" color="#4A90E2" opacity="0.15" material="transparent: true; side: back; blending: additive"></a-sphere>
+                
+                <a-entity rotation="0 0 0" animation="property: rotation; to: 0 360 0; loop: true; dur: 2000; easing: linear">
+                    <a-sphere position="0.2 0 0" radius="0.025" 
+                              src="https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg" 
+                              material="roughness: 1"
+                              shadow="cast: true"></a-sphere>
+                </a-entity>
+            </a-entity>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 1.6; speed: 0.9">
+            <a-sphere radius="0.06" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg"
+                      material="roughness: 1"
+                      shadow="cast: true; receive: true"
+                      animation="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-entity asteroid-belt position="0 0.5 0"></a-entity>
+
+        <a-entity orbit-mover="radius: 2.3; speed: 0.5">
+            <a-entity>
+                <a-sphere radius="0.25" 
+                          src="https://upload.wikimedia.org/wikipedia/commons/e/e2/Jupiter.jpg"
+                          shadow="cast: true; receive: true"
+                          animation="property: rotation; to: 0 360 0; loop: true; dur: 1500; easing: linear"></a-sphere>
+                
+                <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 1000; easing: linear">
+                    <a-sphere position="0.3 0 0" radius="0.015" color="#FFFFA0" shadow="cast: true"></a-sphere>
+                </a-entity>
+                <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 2000; easing: linear">
+                    <a-sphere position="0.35 0.05 0" radius="0.012" color="#A0C0FF" shadow="cast: true"></a-sphere>
+                </a-entity>
+                 <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 3500; easing: linear">
+                    <a-sphere position="0.42 -0.05 0" radius="0.018" color="#C0C0C0" shadow="cast: true"></a-sphere>
+                </a-entity>
+            </a-entity>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 3.0; speed: 0.4">
+            <a-entity>
+                <a-sphere radius="0.2" 
+                          src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg" 
+                          shadow="cast: true; receive: true"
+                          animation="property: rotation; to: 0 360 0; loop: true; dur: 2000; easing: linear"></a-sphere>
+                <a-ring radius-inner="0.25" radius-outer="0.45" 
+                        src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Saturn_rings.jpg"
+                        material="side: double; transparent: true; opacity: 0.9; roughness: 0.8"
+                        rotation="-70 0 0" shadow="cast: true; receive: true"></a-ring>
+            </a-entity>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 3.6; speed: 0.3">
+            <a-sphere radius="0.12" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg"
+                      shadow="cast: true; receive: true"
+                      animation="property: rotation; to: 0 360 0; loop: true; dur: 3000; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 4.1; speed: 0.2">
+            <a-sphere radius="0.11" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg"
+                      shadow="cast: true; receive: true"
+                      animation="property: rotation; to: 0 360 0; loop: true; dur: 3000; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-entity orbit-mover="radius: 4.6; speed: 0.1; tilt: 15"> <a-sphere radius="0.02" 
+                      src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Nh-pluto-in-true-color_2x_JPEG.jpg"
+                      shadow="cast: true"
+                      animation="property: rotation; to: 0 360 0; loop: true; dur: 2500; easing: linear"></a-sphere>
+        </a-entity>
+
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="0.59" radius-outer="0.60" color="#888" opacity="0.1"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="0.79" radius-outer="0.80" color="#888" opacity="0.1"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="1.19" radius-outer="1.20" color="#888" opacity="0.1"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="1.59" radius-outer="1.60" color="#888" opacity="0.1"></a-ring>
+        
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="2.29" radius-outer="2.30" color="#888" opacity="0.1"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="2.99" radius-outer="3.00" color="#888" opacity="0.1"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="3.59" radius-outer="3.60" color="#888" opacity="0.08"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="4.09" radius-outer="4.10" color="#888" opacity="0.08"></a-ring>
+        <a-ring class="orbit-ring" rotation="-90 0 0" radius-inner="4.59" radius-outer="4.60" color="#888" opacity="0.05"></a-ring>
+
+      </a-marker>
+      <a-entity camera></a-entity>
+    </a-scene>
+  </body>
+</html>
